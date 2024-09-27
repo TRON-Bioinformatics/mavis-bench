@@ -27,13 +27,14 @@ def calculate_orf(
     assert START_AA != STOP_AA
     cds_orfs = []  # (cds_start, cds_end)
     for offset in range(0, CODON_SIZE):
+        # Translate the sequence in all 3 reading frames
         aa_sequence = translate(spliced_cdna_sequence, offset)
         # now calc the open reading frames
         orf_intervals = []
         current_start = None
         for i, curr_amino_acid in enumerate(aa_sequence):
             if curr_amino_acid == START_AA:
-                pos = i * CODON_SIZE + 1 + offset
+                pos = i * CODON_SIZE + 1 + offset # DNA position of the start codon
                 if current_start is None:
                     current_start = pos
             elif curr_amino_acid == STOP_AA:

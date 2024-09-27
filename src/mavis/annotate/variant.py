@@ -145,7 +145,7 @@ class Annotation(BreakpointPair):
                 self.genes_proximal_to_break1.add((input_gene, dist1))
             if dist2 > 0:
                 self.genes_proximal_to_break2.add((input_gene, dist2))
-
+        # if proximity parameter is not set, select only the closest gene
         if self.genes_proximal_to_break1:
             temp = set()
             tgt = min([abs(d) for g, d in self.genes_proximal_to_break1])
@@ -582,7 +582,7 @@ def _gather_breakpoint_annotations(
         Support for setting the transcript in the annotation when the breakpoint is just ahead of the transcript
         and the transcript would be 3'. Then assuming the splicing model takes the 2nd exon onward
     """
-
+    # collect all transcripts overlapping the breakpoint
     pos_overlapping_transcripts = []
     neg_overlapping_transcripts = []
     for gene in ref_ann.get(breakpoint.chr, []):
@@ -592,7 +592,7 @@ def _gather_breakpoint_annotations(
                     pos_overlapping_transcripts.append(t)
                 if STRAND.compare(t.get_strand(), STRAND.NEG):
                     neg_overlapping_transcripts.append(t)
-
+    # Returns a sorted lists of non-overlapping transcripts/regions
     pos_intervals = Interval.min_nonoverlapping(*pos_overlapping_transcripts)
     neg_intervals = Interval.min_nonoverlapping(*neg_overlapping_transcripts)
 

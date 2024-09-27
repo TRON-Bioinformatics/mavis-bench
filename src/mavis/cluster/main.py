@@ -31,11 +31,21 @@ def split_clusters(
     write_bed_summary: bool = True,
 ) -> List[str]:
     """
-    For a set of clusters creates a bed file representation of all clusters.
-    Also splits the clusters evenly into multiple files based on the user parameters (max_files)
+    For a set of clusters, creates a bed file representation of all clusters.
+    Also splits the clusters evenly into multiple files based on the user parameters (total_batches).
+
+    Args:
+        clusters (List[BreakpointPair]): A list of BreakpointPair objects representing the clusters.
+        outputdir (str): The directory where the output files will be written.
+        total_batches (int): The total number of batches to split the clusters into.
+        write_bed_summary (bool, optional): Whether to write a bed file summary of all clusters. Defaults to True.
 
     Returns:
-        list of output file names (not including the bed file)
+        List[str]: A list of output file names (not including the bed file).
+
+    Raises:
+        AssertionError: If the sum of the lengths of all batches does not equal the total number of clusters.
+
     """
     if write_bed_summary:
         bedfile = os.path.join(outputdir, 'clusters.bed')
@@ -71,12 +81,28 @@ def main(
     **kwargs,
 ):
     """
+    Main function for clustering breakpoint pairs.
+    Filters: 
+    - non_informative events, which are not in a certain distance to any annotation.
+    -- The distance is defined by the max_proximity parameter in the config.
+    - events that are in a masking region.
+
+    - events that are not on the chromosomes specified in the config.
+    - events that are not from the library specified in the config.
+    - events that are not from the protocol specified in the config.
+    - events that are not from the disease status specified in the config.
+
     Args:
-        inputs: list of input files to read
-        output: path to the output directory
-        library: the library to look for in each of the input files
-        masking (ReferenceFile): see :func:`mavis.annotate.file_io.load_masking_regions`
-        annotations (ReferenceFile): see :func:`mavis.annotate.file_io.load_annotations`
+        inputs (List[str]): List of input files to read.
+        output (str): Path to the output directory.
+        library (str): The library to look for in each of the input files.
+        config (Dict): Configuration dictionary.
+            masking (ReferenceFile): see :func:`mavis.annotate.file_io.load_masking_regions`
+            annotations (ReferenceFile): see :func:`mavis.annotate.file_io.load_annotations`
+
+    Returns:
+        List[str]: List of output files generated.
+
     """
     masking = ReferenceFile.load_from_config(config, 'masking', eager_load=True)
     annotations = ReferenceFile.load_from_config(config, 'annotations')
@@ -146,10 +172,21 @@ def main(
     if other_chr:
         logger.info(f'warning: filtered events on chromosomes {other_chr}')
     # filter by masking file
+    """
+    Filtering breakpoint pairs based on overlap with masked regions of the genome, 
+    and keeping track of the pairs that were filtered out.
+    """
     breakpoint_pairs, masked_pairs = filter_on_overlap(breakpoint_pairs, masking.content)
     for bpp in masked_pairs:
         filtered_pairs.append(bpp)
+
     # filter by informative
+    """
+    For example, if the user is only interested in events in genes, then the cluster.uninformative_filter 
+    can be used. This will drop all events that are not within a certain distance (cluster.max_proximity) 
+    to any annotation in the annotations reference file.
+    """
+
     if config[f'{SECTION}.uninformative_filter']:
         logger.info(
             f'filtering from {len(breakpoint_pairs)} breakpoint pairs using informative filter'
@@ -172,8 +209,21 @@ def main(
 
     if not config[f'{SECTION}.split_only']:
         logger.info('computing clusters')
+        """
+        merge_breakpint_pairs is designed to take a list of breakpoint pairs and merge them into clusters.
+        Clusters are defined as a group of breakpoint pairs that are within a certain distance of each other.
+        A breakpoint pair can have multiple types, but a cluster can only contain pairs of the same type.
+        Breakpoint types are defined by the BreakpointPair class.
+
+        Possible breakpoint types are: 
+            Inversion (SVTYPE.INV): A segment of DNA has been inverted (flipped end-to-end).
+            Translocation (SVTYPE.TRANS): A segment of DNA has been moved from one location to another, either within the same chromosome or to a different chromosome.
+            Duplication (SVTYPE.DUP): A segment of DNA has been duplicated.
+            Deletion (SVTYPE.DEL): A segment of DNA has been deleted.
+            Insertion (SVTYPE.INS): A segment of DNA has been inserted.
+        """
         clusters = merge_breakpoint_pairs(
-            breakpoint_pairs,
+            breakpoint_pairs, #  breakpoint pairs that passed the filters
             cluster_radius=config[f'{SECTION}.cluster_radius'],
             cluster_initial_size_limit=config[f'{SECTION}.cluster_initial_size_limit'],
         )
@@ -226,7 +276,11 @@ def main(
             row[COLUMNS.tools] = ';'.join(sorted(list(row[COLUMNS.tools])))
         output_tabbed_file(rows.values(), cluster_assign_output)
         breakpoint_pairs = list(clusters.keys())
-
+    
+    """
+    This function is designed to split a list of genomic clusters into multiple batches and 
+    write each batch to a separate file probably for parallel processing.
+    """
     output_files = split_clusters(
         breakpoint_pairs,
         output,

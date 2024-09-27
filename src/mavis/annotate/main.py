@@ -232,6 +232,7 @@ def main(
                 seq = ann.fusion.get_cdna_seq(spl_fusion_tx.splicing_pattern)
                 # make the fasta id a hex of the string to avoid having to load the sequences later
                 fusion_fa_id = 'seq-{}'.format(hashlib.md5(seq.encode('utf-8')).hexdigest())
+                # write the fusion cdna fasta
                 fasta_fh.write('> {}\n{}\n'.format(fusion_fa_id, seq))
                 cdna_synon = ';'.join(sorted(list(ref_cdna_seq.get(seq, set()))))
 

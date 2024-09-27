@@ -110,6 +110,7 @@ def main(
                     median_fragment_size=config['libraries'][library]['median_fragment_size'],
                     config=config,
                     **bpp.data,
+                    # data: optional dictionary of attributes associated with this pair
                 )
                 evidence_clusters.append(evidence)
             except ValueError as err:
@@ -150,7 +151,7 @@ def main(
                     name=mask.name,
                 )
             )
-
+    # filter out any evidence that overlaps with extended masking regions
     evidence_clusters, filtered_evidence_clusters = filter_on_overlap(
         evidence_clusters, extended_masks
     )
@@ -179,6 +180,7 @@ def main(
             + '; half-mapped reads: {}, {}'.format(*[len(a) for a in evidence.half_mapped])
             + f'; spanning-reads: {len(evidence.spanning_reads)}; compatible flanking pairs: {len(evidence.compatible_flanking_pairs)}',
         )
+        # Assemble all possible contigs from the evidence supporting reads
         evidence.assemble_contig()
         logger.info(f'assembled {len(evidence.contigs)} contigs')
         for contig in evidence.contigs:
@@ -192,7 +194,7 @@ def main(
     logger.info(f'will output: {contig_aligner_fa} ${contig_aligner_output}')
     raw_contig_alignments = align_sequences(
         contig_sequences,
-        input_bam_cache,
+        input_bam_cache, # just needed as a template for creating reference_id from chr name
         reference_genome=reference_genome.content,
         aligner_fa_input_file=contig_aligner_fa,
         aligner_output_file=contig_aligner_output,

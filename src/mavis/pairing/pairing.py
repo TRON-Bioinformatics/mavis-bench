@@ -203,6 +203,7 @@ def pair_by_distance(
     distance_pairings: Dict[str, Set[str]] = {}
     break1_sorted = sorted(calls, key=lambda b: b.break1.start)
     break2_sorted = sorted(calls, key=lambda b: b.break2.start)
+    # minimum resolution for uncertain BP positions
     lowest_resolution = max([len(b.break1) for b in calls] + [len(b.break2) for b in calls] + [1])
     max_distance = max(distances.values())
     max_useq = max([len(c.untemplated_seq) if c.untemplated_seq else 0 for c in calls] + [0])

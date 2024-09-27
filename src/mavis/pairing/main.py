@@ -35,6 +35,7 @@ def main(
 
     bpps = []
     bpps.extend(
+        # Read annotated breakpoints
         read_inputs(
             inputs,
             required_columns=[
@@ -75,6 +76,7 @@ def main(
     # initialize the pairing mappings
     for bpp in bpps:
         libraries.add(bpp.library)
+        # similar to clusters in annotate
         category = (bpp.break1.chr, bpp.break2.chr, bpp.opposing_strands, bpp.event_type)
         bpp.data[COLUMNS.product_id] = product_key(bpp)
         calls_by_cat.setdefault(category, []).append(bpp)

@@ -292,6 +292,7 @@ def main(inputs: List[str], output: str, config: Dict, start_time=int(time.time(
         logger.info(f'adding pairing states for {lib}')
         for row in bpps_by_library[lib]:
             # in case no pairing was done, add default (applicable to single library summaries)
+            # In this case no tumor/normal libraries are available
             row.data.setdefault(COLUMNS.inferred_pairing, '')
             row.data.setdefault(COLUMNS.pairing, '')
             row.data.setdefault(COLUMNS.library, lib)

@@ -27,7 +27,18 @@ def convert_tool_output(
     assume_no_untemplated: bool = True,
 ) -> List[BreakpointPair]:
     """
-    Reads output from a given SV caller and converts to a set of MAVIS breakpoint pairs. Also collapses duplicates
+    Reads output from a given SV caller and converts to a set of MAVIS breakpoint pairs. Also collapses duplicates.
+
+    Args:
+        fnames (List[str]): A list of file names containing the SV caller output.
+        file_type (str, optional): The type of SV caller output file. Defaults to SUPPORTED_TOOL.MAVIS.
+        stranded (bool, optional): Flag indicating whether the SV caller output is stranded. Defaults to False.
+        collapse (bool, optional): Flag indicating whether to collapse duplicate breakpoint pairs. Defaults to True.
+        assume_no_untemplated (bool, optional): Flag indicating whether to assume there are no untemplated sequences. Defaults to True.
+
+    Returns:
+        List[BreakpointPair]: A list of MAVIS breakpoint pairs.
+
     """
     result = []
     for fname in fnames:

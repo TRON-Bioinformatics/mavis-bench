@@ -78,7 +78,7 @@ class SplicingPattern(list):
             if rintron_count > 1:
                 return SPLICE_TYPE.MULTI_RETAIN
             return SPLICE_TYPE.RETAIN
-        return SPLICE_TYPE.COMPLEX
+        return SPLICE_TYPE.COMPLEX # multiple exons and introns skipped
 
     @classmethod
     def generate_patterns(
@@ -100,17 +100,19 @@ class SplicingPattern(list):
         patterns = []
         for site in sites:
             if site.intact:
+                # Wenn die Positionen intakt sind, dann füge sie hinzu
                 if patterns and patterns[-1][0].type == site.type:
-                    patterns[-1].append(site)
+                    patterns[-1].append(site)     # e.g. [[site1.donor], [site2.acceptor, site3.acceptor]]
                 else:
-                    patterns.append([site])
+                    patterns.append([site]) # This adds a new list to the patterns list --> List inside a list
         if patterns and patterns[0][0].type == SPLICE_SITE_TYPE.ACCEPTOR:
             patterns = patterns[1:]
         if patterns and patterns[-1][0].type == SPLICE_SITE_TYPE.DONOR:
             patterns = patterns[:-1]
         if not patterns:
             return [SplicingPattern()]
-        patterns = list(itertools.product(*patterns))
+        patterns = list(itertools.product(*patterns)) 
+        # e.g. [[donor],[acceptor], [donor], [acceptor1, acceptor2]] --> (donor, acceptor, donor, acceptor1), (donor, acceptor, donor, acceptor2)
         for i, patt in enumerate(patterns):
             patterns[i] = SplicingPattern(patt, splice_type=cls.classify(patt, sites))
         return patterns
@@ -166,6 +168,7 @@ def predict_splice_sites(input_sequence: str, is_reverse: bool = False) -> List[
     """
     looks for the expected splice site sequence patterns in the
     input strings and returns a list of putative splice sites
+    Christoph: Not implemented yet
 
     Args:
         input_sequence: input sequence with respect to the positive/forward strand

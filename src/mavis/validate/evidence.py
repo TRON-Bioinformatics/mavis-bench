@@ -299,7 +299,7 @@ class TranscriptomeEvidence(Evidence):
             strand=breakpoint.strand,
             chrom=breakpoint.chr,
         )
-        return window1 | window2
+        return window1 | window2 # returns the union of the two windows
 
     def min_cds_shift(self, pos, strand=STRAND.NS, chrom=None):
         exon_boundaries = set()

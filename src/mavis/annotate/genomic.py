@@ -537,8 +537,8 @@ class PreTranscript(BioInterval):
             return self.seq
         elif self.gene and self.gene.seq and not ignore_cache:
             # gene has a seq set
-            start = self.start - self.gene.start
-            end = self.end - self.gene.end + len(self.gene.seq)
+            start = self.start - self.gene.start # Calculate the start position in the transcript relative to the gene
+            end = self.end - self.gene.end + len(self.gene.seq) # seems wrong ?! --> Check ToDo
             if self.get_strand() == STRAND.NEG:
                 return reverse_complement(self.gene.seq[start:end])
             return self.gene.seq[start:end]

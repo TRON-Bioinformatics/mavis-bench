@@ -119,11 +119,13 @@ class FusionTranscript(PreTranscript):
         # now create 'pseudo-deletion' breakpoints
         b1 = Breakpoint(ann.break1.chr, window.start - 1, orient=ORIENT.LEFT)
         b2 = Breakpoint(ann.break2.chr, window.end + 1, orient=ORIENT.RIGHT)
-
+        
+        # pull_exons returns the full sequence including the intronic sequence till the breakpoint and the remaining exons
         seq1, ex1 = cls._pull_exons(ann.transcript1, b1, reference_genome[b1.chr].seq)
         seq2, ex2 = cls._pull_exons(ann.transcript2, b2, reference_genome[b2.chr].seq)
         useq = ann.untemplated_seq
 
+        # Create a mapping of the fusion transcript to the genome
         if ann.transcript1.get_strand() == STRAND.POS:
             window_seq = reverse_complement(window_seq)  # b/c inversion should be opposite
             fusion_pre_transcript.map_region_to_genome(
@@ -243,12 +245,16 @@ class FusionTranscript(PreTranscript):
         front = Interval(ann.transcript1.start, ann.break2.start)
         back = Interval(ann.break1.start, ann.transcript1.end)
         flipped = False
+        
+        # If the transcript is on the negative strand, we need to reverse the sequence
         if ann.transcript1.get_strand() == STRAND.NEG:
             seq1, seq2 = (seq2, seq1)
             ex1, ex2 = (ex2, ex1)
             front, back = (back, front)
             useq = reverse_complement(useq)
             flipped = True
+        
+        # Create the two pre-transcripts the fusion is consisting of
         fusion_pre_transcript.map_region_to_genome(
             ann.break1.chr, Interval(1, len(seq2)), front, flipped
         )
@@ -258,6 +264,7 @@ class FusionTranscript(PreTranscript):
             back,
             flipped,
         )
+        
         fusion_pre_transcript.seq = seq2 + useq
         fusion_pre_transcript.break1 = len(seq2)
         fusion_pre_transcript.break2 = len(seq2) + len(useq) + 1
@@ -348,6 +355,8 @@ class FusionTranscript(PreTranscript):
 
             if t1 == t2:
                 raise NotImplementedError('do not produce fusion transcript for anti-sense fusions')
+            
+            # pull_exons returns the full sequence including the intronic sequence till the breakpoint and the remaining exons
             seq1, ex1 = cls._pull_exons(
                 ann.transcript1, ann.break1, reference_genome[ann.break1.chr].seq
             )
@@ -355,6 +364,8 @@ class FusionTranscript(PreTranscript):
                 ann.transcript2, ann.break2, reference_genome[ann.break2.chr].seq
             )
             useq = ann.untemplated_seq
+            
+            # Create a mapping of the fusion transcript to the genome
             if t1 == PRIME.FIVE:
                 fusion_pre_transcript.break1 = len(seq1)
                 fusion_pre_transcript.break2 = len(seq1) + len(useq) + 1
@@ -412,15 +423,16 @@ class FusionTranscript(PreTranscript):
                     )
                 seq1, seq2 = seq2, seq1
                 ex1, ex2 = ex2, ex1
-
+            # Here we add the sequence from the first part of the fusion to the fusion object
             fusion_pre_transcript.seq = seq1 + useq
-
+            # ex1 contains tuples of the new exons (e.g. if the breakpoint was inside the exon) and the reference exons
+            # Here we add all exons from the first part of the fusion to the fusion object
             for ex, old_ex in ex1:
                 fusion_pre_transcript.exons.append(ex)
                 ex.reference_object = fusion_pre_transcript
                 fusion_pre_transcript.exon_mapping[ex.position] = old_ex
             offset = len(fusion_pre_transcript.seq)
-
+            # If we work with transcritome data, we need to add a novel exon if the breakpoint was inside an exon ??? --> Check
             if ann.protocol == PROTOCOL.TRANS:
                 fusion_pre_transcript.exons[-1].end_splice_site.intact = False
                 ex2[0][0].start_splice_site.intact = False
@@ -436,6 +448,8 @@ class FusionTranscript(PreTranscript):
                         seq=fusion_pre_transcript.seq[novel_exon_start - 1 : novel_exon_end],
                     )
                     fusion_pre_transcript.exons.append(e)
+            # Here we add all exons from the second part of the fusion to the fusion object
+            # Positions inside of the transcript are updated with the offset
             for ex, old_ex in ex2:
                 e = Exon(
                     ex.start + offset,
@@ -452,13 +466,16 @@ class FusionTranscript(PreTranscript):
         fusion_pre_transcript.position = Interval(1, len(fusion_pre_transcript.seq))
         # add all splice variants
         for spl_patt in fusion_pre_transcript.generate_splicing_patterns():
+            # Erstellen eines neuen Transkripts mit dem Splicing Pattern
             fusion_spl_tx = Transcript(fusion_pre_transcript, spl_patt)
+            # Füge das neue Transkript zur Liste der Transkripte des FusionTranskripts hinzu
             fusion_pre_transcript.spliced_transcripts.append(fusion_spl_tx)
 
-            # calculate the putative open reading frames
-            orfs = calculate_orf(fusion_spl_tx.get_seq(), min_orf_size=min_orf_size)
-            # limit the length to either only the longest ORF or anything longer than the input translations
+            # calculate the putative open reading frames --> Intervalle in denen die Translation stattfinden kann basierend auf Start und Stop Codons
+            orfs = calculate_orf(fusion_spl_tx.get_seq(), min_orf_size=min_orf_size) # Input: splice variant cDNA sequence
+            # limit the length to either only the longest ORF or min_orf_size (anything longer than the input translations)
             min_orf_length = max([len(o) for o in orfs] + [min_orf_size if min_orf_size else 0])
+            # Calculate the minimum ORF length based on the smaller length of the two reference transcripts
             for ref_tx in [ann.transcript1, ann.transcript2]:
                 for tlx in ref_tx.translations:
                     min_orf_length = min(min_orf_length, len(tlx))
@@ -466,7 +483,7 @@ class FusionTranscript(PreTranscript):
             # filter the orfs based on size
             orfs = [o for o in orfs if len(o) >= min_orf_length]
 
-            # if there are still too many filter to reasonable number
+            # if there are still too many filter to reasonable number and keep the longest
             if max_orf_cap and len(orfs) > max_orf_cap:  # limit the number of orfs returned
                 orfs = sorted(orfs, key=lambda x: len(x), reverse=True)
                 orfs = orfs[0:max_orf_cap]
@@ -525,25 +542,27 @@ class FusionTranscript(PreTranscript):
         if len(breakpoint) > 1:
             raise AttributeError('cannot pull exons on non-specific breakpoints')
         new_exons = []
-        s = ''
+        s = '' # sequence
         exons = sorted(transcript.exons, key=lambda x: x.start)
         if breakpoint.orient == ORIENT.LEFT:  # five prime
             for i, exon in enumerate(exons):
                 intact_start_splice = True
                 intact_end_splice = True
                 if breakpoint.start < exon.start:  # =====----|----|----
-                    if i > 0:  # add intron
+                    if i > 0:  # add intronic sequence till the breakpoint is reached
                         temp = reference_sequence[exons[i - 1].end : breakpoint.start]
                         s += temp
                     break
                 else:
-                    if i > 0:  # add intron
+                    if i > 0:  # add  intronic sequence
                         temp = reference_sequence[exons[i - 1].end : exon.start - 1]
                         s += temp
+                    # If the breakpoint is within the exon - Set intact splice site at the end of the Exon to False
                     if breakpoint.start <= exon.end_splice_site.end:
                         intact_end_splice = False
                     if breakpoint.start <= exon.start_splice_site.end:
                         intact_start_splice = False
+                    # If the breakpoint is within the exon - Create a new exon from the start of the exon to the breakpoint
                     t = min(breakpoint.start, exon.end)
                     e = Exon(
                         len(s) + 1,

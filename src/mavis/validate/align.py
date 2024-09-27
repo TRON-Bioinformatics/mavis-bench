@@ -396,7 +396,7 @@ def call_paired_read_event(read1, read2, is_stranded=False):
 
 
 def align_sequences(
-    sequences: Dict[str, str],
+    sequences: Dict[str, str], # contigs
     input_bam_cache: 'BamCache',
     reference_genome: ReferenceGenome,
     aligner: str,
@@ -526,6 +526,7 @@ def align_sequences(
 
 
 def select_contig_alignments(evidence, reads_by_query):
+    # evidence: evidence object; reads_by_query: output of the "raw_alignment"
     """
     standardize/simplify reads and filter bad/irrelevant alignments
     adds the contig alignments to the contigs
